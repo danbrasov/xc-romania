@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XC România — Clasament parapantă</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand"><span class="flag">🇷🇴</span><div><h1>XC România</h1><p>Clasamentul zborurilor XC din România</p></div></div>
+  <div class="season">Sezon <b>2026</b> <span>● actualizare orară</span></div>
+</header>
+<nav id="tabs"></nav>
+<main>
+<section class="hero">
+ <div><span class="eyebrow">CLASAMENT NAȚIONAL</span><h2 id="title">General</h2><p id="subtitle">Toate clasele de aripi • cele mai bune 6 zboruri</p></div>
+ <div class="stats"><div><b id="pilots">0</b><small>piloți</small></div><div><b id="flights">0</b><small>zboruri</small></div><div><b id="km">0 km</b><small>total</small></div></div>
+</section>
+<section class="toolbar"><input id="search" placeholder="🔎 Caută pilot, aripă sau club…"><select id="period"><option>Sezon 2026</option><option>Ultimele 30 zile</option><option>Ultimele 7 zile</option></select></section>
+<section class="card">
+<table><thead><tr><th>#</th><th>Pilot</th><th>Aripă</th><th>Clasă</th><th>Club</th><th>Zboruri</th><th>Cel mai bun</th><th>Puncte</th></tr></thead><tbody id="ranking"></tbody></table>
+</section>
+<section class="extras">
+ <article><h3>🏆 Zborul zilei</h3><b>—</b><p>Va fi completat automat din zborurile importate.</p></article>
+ <article><h3>△ Cel mai bun FAI</h3><b>—</b><p>Triunghiul FAI cu cel mai mare punctaj.</p></article>
+ <article><h3>📍 Top decolări</h3><b>În curând</b><p>Decolările cu cele mai multe zboruri XC.</p></article>
+ <article><h3>🪂 Top aripi</h3><b>În curând</b><p>Statistici pe modele și clase EN.</p></article>
+</section>
+</main>
+<footer>Datele de zbor vor fi preluate din surse publice • XC România este un proiect independent și nu este afiliat XContest.</footer>
+<script src="app.js"></script>
+</body></html>
