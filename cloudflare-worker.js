@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,20 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/test/static-image"){
+      try{
+        const dr=await get(DANIEL_URL); const html=await dr.text();
+        const imgs=[...html.matchAll(/<img[^>]+src=["']([^"']*flight\.thumbs[^"']*)["']/gi)].map(m=>m[1].replace(/&amp;/g,"&"));
+        const resolved=imgs.map(x=>new URL(x,dr.url).href);
+        const results=[];
+        for(const url of resolved.slice(0,4)){
+          const r=await get(url,"image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8");
+          results.push({url,status:r.status,contentType:r.headers.get("content-type"),contentLength:r.headers.get("content-length")});
+        }
+        return json({ok:dr.ok,detailStatus:dr.status,detailUrl:dr.url,imageCount:resolved.length,images:results});
+      }catch(e){return json({ok:false,stage:"static-image-public-flow",error:String(e)},502);}
     }
 
     if(u.pathname==="/test/static-map"){
