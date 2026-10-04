@@ -172,39 +172,37 @@ export default {
     if(u.pathname==="/api/db/init"){
       try{
         if(!env?.DB) return json({ok:false,error:"D1 binding DB is missing"},500);
-        await env.DB.exec(`
-          CREATE TABLE IF NOT EXISTS flights (
-            id INTEGER PRIMARY KEY,
-            ident TEXT UNIQUE,
-            flight_date TEXT NOT NULL,
-            start_time TEXT,
-            utc_offset_start INTEGER,
-            pilot_id INTEGER,
-            pilot_name TEXT,
-            pilot_username TEXT,
-            pilot_country TEXT,
-            is_male INTEGER,
-            takeoff_id INTEGER,
-            takeoff_name TEXT,
-            takeoff_country TEXT,
-            glider_name TEXT,
-            glider_subclass TEXT,
-            glider_class TEXT,
-            glider_fai INTEGER,
-            route_type TEXT,
-            distance_km REAL,
-            points REAL,
-            avg_speed REAL,
-            duration TEXT,
-            xcontest_url TEXT,
-            kml_url TEXT,
-            imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-          );
-          CREATE INDEX IF NOT EXISTS idx_flights_date ON flights(flight_date);
-          CREATE INDEX IF NOT EXISTS idx_flights_points ON flights(points DESC);
-          CREATE INDEX IF NOT EXISTS idx_flights_pilot ON flights(pilot_id);
-          CREATE INDEX IF NOT EXISTS idx_flights_takeoff ON flights(takeoff_id);
-        `);
+        await env.DB.prepare(`CREATE TABLE IF NOT EXISTS flights (
+          id INTEGER PRIMARY KEY,
+          ident TEXT UNIQUE,
+          flight_date TEXT NOT NULL,
+          start_time TEXT,
+          utc_offset_start INTEGER,
+          pilot_id INTEGER,
+          pilot_name TEXT,
+          pilot_username TEXT,
+          pilot_country TEXT,
+          is_male INTEGER,
+          takeoff_id INTEGER,
+          takeoff_name TEXT,
+          takeoff_country TEXT,
+          glider_name TEXT,
+          glider_subclass TEXT,
+          glider_class TEXT,
+          glider_fai INTEGER,
+          route_type TEXT,
+          distance_km REAL,
+          points REAL,
+          avg_speed REAL,
+          duration TEXT,
+          xcontest_url TEXT,
+          kml_url TEXT,
+          imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`).run();
+        await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_flights_date ON flights(flight_date)").run();
+        await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_flights_points ON flights(points DESC)").run();
+        await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_flights_pilot ON flights(pilot_id)").run();
+        await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_flights_takeoff ON flights(takeoff_id)").run();
         return json({ok:true,database:"xc-romania-db",table:"flights"});
       }catch(e){return json({ok:false,stage:"db-init",error:String(e)},500);}
     }
