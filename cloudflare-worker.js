@@ -54,8 +54,22 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
+
+    if(u.pathname==="/test/contest"){
+      try{
+        const url="https://d393ilck4xazzy.cloudfront.net/api/js/2.6.36/contest.js";
+        const r=await get(url,"application/javascript,text/javascript,*/*;q=0.8"); const js=await r.text();
+        const needles=["ticket","initSI","getSeedUrl","authSeed","md5","XMLHTTP","ajax_request","requestResponse"];
+        const hits={};
+        for(const n of needles){
+          const re=new RegExp(".{0,1800}"+n.replace(/[.*+?^$\\{\\}()|[\\]\\\\]/g,"\\    if(u.pathname==="/test/modules"){")+".{0,2600}","gis");
+          hits[n]=[...js.matchAll(re)].map(m=>m[0].replace(/\s+/g," ").slice(0,4400)).slice(0,8);
+        }
+        return json({ok:r.ok,status:r.status,url,bytes:js.length,hits});
+      }catch(e){return json({ok:false,stage:"contest-inspection",error:String(e)},502);}
+    }
 
     if(u.pathname==="/test/modules"){
       try{
