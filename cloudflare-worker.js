@@ -54,8 +54,25 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
+
+    if(u.pathname==="/test/contest-meta"){
+      try{
+        const url="https://d393ilck4xazzy.cloudfront.net/api/js/2.6.36/contest.js";
+        const r=await get(url,"application/javascript,text/javascript,*/*;q=0.8"); const js=await r.text();
+        const tail=js.slice(-5000), head=js.slice(0,5000);
+        const sm=tail.match(/sourceMappingURL\s*=\s*([^\s*]+)/i)?.[1]||null;
+        let sourceMap=null;
+        if(sm){
+          const smUrl=new URL(sm,url).href;
+          const mr=await get(smUrl,"application/json,text/plain,*/*;q=0.8");
+          const mt=await mr.text();
+          sourceMap={url:smUrl,status:mr.status,bytes:mt.length,head:mt.slice(0,2000)};
+        }
+        return json({ok:r.ok,status:r.status,url,bytes:js.length,sourceMappingURL:sm,head,tail,sourceMap});
+      }catch(e){return json({ok:false,stage:"contest-meta",error:String(e)},502);}
+    }
 
     if(u.pathname==="/test/contest"){
       try{
