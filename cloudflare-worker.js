@@ -61,12 +61,17 @@ export default {
       try{
         const url="https://d393ilck4xazzy.cloudfront.net/api/js/2.6.36/contest.js";
         const r=await get(url,"application/javascript,text/javascript,*/*;q=0.8"); const js=await r.text();
-        const m=js.match(/^eval\(\(function\(([^)]*)\)\{([\s\S]*?)\}\)\((.*)\)\)\s*$/);
-        const splitMatch=js.match(/'([^']{1000,})'\.split\('\.'\)\)\)\s*$/);
-        const words=splitMatch?splitMatch[1].split("."):[];
-        const packedHead=js.slice(0,12000);
-        const identifiers=[...packedHead.matchAll(/\b[0-9][a-z0-9]{1,4}\b/gi)].map(x=>x[0]).slice(0,300);
-        return json({ok:r.ok,status:r.status,bytes:js.length,wrapperMatched:!!m,wrapperArgs:m?m[1]:null,dictionaryFound:!!splitMatch,dictionaryWords:words.length,dictionaryHead:words.slice(0,120),dictionaryTail:words.slice(-120),packedHead,identifierSample:identifiers});
+        const tail=js.slice(-12000);
+        const marker=".split('.')))";
+        const p=tail.lastIndexOf(marker);
+        let dictText="", words=[];
+        if(p>=0){
+          const before=tail.slice(0,p);
+          const q=before.lastIndexOf("'");
+          const q2=q>0?before.lastIndexOf("'",q-1):-1;
+          if(q2>=0){dictText=before.slice(q2+1,q); words=dictText.split(".");}
+        }
+        return json({ok:r.ok,status:r.status,bytes:js.length,dictionaryFound:words.length>0,dictionaryWords:words.length,dictionaryHead:words.slice(0,80),dictionaryTail:words.slice(-80),head:js.slice(0,2500),tail:tail.slice(-2500)});
       }catch(e){return json({ok:false,stage:"unpack-inspection",error:String(e)},502);}
     }
 
