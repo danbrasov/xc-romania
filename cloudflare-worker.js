@@ -191,6 +191,8 @@ export default {
             MAX(pilot_username) AS pilot_username,
             MAX(pilot_country) AS pilot_country,
             COUNT(*) AS counted_flights,
+            GROUP_CONCAT(DISTINCT glider_name) AS gliders,
+            GROUP_CONCAT(DISTINCT glider_subclass) AS wing_classes,
             ROUND(SUM(points),2) AS total_points,
             ROUND(MAX(points),2) AS best_points,
             ROUND(MAX(distance_km),2) AS best_distance_km
