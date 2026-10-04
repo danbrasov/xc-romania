@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,25 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/test/flights-module"){
+      try{
+        const url="https://d393ilck4xazzy.cloudfront.net/api/js/2.6.36/contest.js";
+        const r=await get(url,"application/javascript,text/javascript,*/*;q=0.8"); const js=await r.text();
+        const terms=["flights","filterVars","joinList","time_claim","detail_glider_catg","subcontest","pager","pagination","pageSize","offset","limit","verifyToken"];
+        const hits={};
+        for(const term of terms){
+          const out=[]; let from=0;
+          while(out.length<8){
+            const p=js.indexOf(term,from); if(p<0) break;
+            out.push(js.slice(Math.max(0,p-500),Math.min(js.length,p+1000)));
+            from=p+term.length;
+          }
+          hits[term]=out;
+        }
+        return json({ok:r.ok,status:r.status,url,bytes:js.length,hits});
+      }catch(e){return json({ok:false,stage:"flights-module-inspection",error:String(e)},502);}
     }
 
     if(u.pathname==="/test/flights-raw"){
