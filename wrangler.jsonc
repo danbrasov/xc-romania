@@ -1,0 +1,7 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "xc-romania",
+  "main": "cloudflare-worker.js",
+  "compatibility_date": "2026-10-04",
+  "workers_dev": true
+}
