@@ -3,5 +3,12 @@
   "name": "xc-romania",
   "main": "cloudflare-worker.js",
   "compatibility_date": "2026-10-04",
-  "workers_dev": true
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "xc-romania-db",
+      "database_id": "8079556b-2753-4cbb-8ef8-f8591852dc7c"
+    }
+  ]
 }
