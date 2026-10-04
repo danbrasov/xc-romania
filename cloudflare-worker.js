@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request, env) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights","/api/backfill","/api/db/init","/api/db/status","/api/import","/api/ranking/open","/api/ranking/category"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights","/api/backfill","/api/db/init","/api/db/status","/api/import","/api/ranking/open","/api/ranking/category","/api/stats"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,17 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/api/stats"){
+      try{
+        if(!env?.DB) return json({ok:false,error:"D1 binding DB is missing"},500);
+        const best=await env.DB.prepare("SELECT pilot_name,takeoff_name,glider_name,route_type,distance_km,points,xcontest_url,flight_date FROM flights ORDER BY points DESC,distance_km DESC LIMIT 1").first();
+        const fai=await env.DB.prepare("SELECT pilot_name,takeoff_name,glider_name,distance_km,points,xcontest_url,flight_date FROM flights WHERE UPPER(COALESCE(route_type,''))='FAI_TRIANGLE' ORDER BY points DESC,distance_km DESC LIMIT 1").first();
+        const takeoffs=(await env.DB.prepare("SELECT takeoff_name,COUNT(*) flights,ROUND(MAX(distance_km),1) best_km FROM flights WHERE takeoff_name IS NOT NULL GROUP BY takeoff_id,takeoff_name ORDER BY flights DESC,best_km DESC LIMIT 5").all()).results||[];
+        const wings=(await env.DB.prepare("SELECT glider_name,COUNT(*) flights,COUNT(DISTINCT pilot_id) pilots,ROUND(MAX(distance_km),1) best_km FROM flights WHERE glider_name IS NOT NULL GROUP BY glider_name ORDER BY flights DESC,pilots DESC,best_km DESC LIMIT 5").all()).results||[];
+        return json({ok:true,bestFlight:best,bestFAI:fai,topTakeoffs:takeoffs,topWings:wings});
+      }catch(e){return json({ok:false,stage:"stats",error:String(e)},500);}
     }
 
     if(u.pathname==="/api/ranking/category"){
