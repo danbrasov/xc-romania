@@ -171,8 +171,9 @@ export default {
 
     if(u.pathname==="/api/flights"){
       try{
-        const rawDate=u.searchParams.get("date")||new Date().toISOString().slice(0,10);\n        const date=rawDate.trim().replace(/\\/g,"");
-        if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return json({ok:false,error:"date must be YYYY-MM-DD"},400);
+        const rawDate=u.searchParams.get("date")||new Date().toISOString().slice(0,10);
+        const date=rawDate.trim();
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ok:false,error:"date must be YYYY-MM-DD",received:rawDate},400);
         const start=Math.max(0,Number.parseInt(u.searchParams.get("start")||"0",10)||0);
         const num=Math.min(100,Math.max(1,Number.parseInt(u.searchParams.get("num")||"100",10)||100));
         const api=new URL("https://www.xcontest.org/api/data/");
