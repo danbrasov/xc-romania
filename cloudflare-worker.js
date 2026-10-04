@@ -54,8 +54,22 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
+
+    if(u.pathname==="/test/map"){
+      try{
+        const dr=await get(DANIEL_URL); const html=await dr.text();
+        const bundleUrl=html.match(/https?:\/\/[^"'<>\\s]+\/widget\/flight-map\/[^"'<>\\s]+\/bundle\.js/i)?.[0];
+        const jwtContext=[...html.matchAll(/.{0,500}(?:jwt|loadFlightMap|startMap).{0,1000}/gis)].map(m=>m[0].replace(/\s+/g," ").slice(0,1600)).slice(0,12);
+        if(!bundleUrl) return json({ok:false,stage:"find-bundle",detailStatus:dr.status,jwtContext},502);
+        const br=await get(bundleUrl,"application/javascript,text/javascript,*/*;q=0.8"); const js=await br.text();
+        const urls=[...js.matchAll(/https?:\/\/[^"'\\s)]+/gi)].map(m=>m[0]).filter((v,i,a)=>a.indexOf(v)===i).slice(0,100);
+        const paths=[...js.matchAll(/["'`](\/[^"'\`\\s]{2,180})["'`]/g)].map(m=>m[1]).filter(x=>/api|flight|track|map|igc|item|token|jwt/i.test(x)).filter((v,i,a)=>a.indexOf(v)===i).slice(0,100);
+        const contexts=[...js.matchAll(/.{0,300}(?:fetch\(|axios|XMLHttpRequest|Authorization|Bearer|jwt|token|flight|track|igc).{0,600}/gis)].map(m=>m[0].replace(/\s+/g," ").slice(0,1000)).slice(0,30);
+        return json({ok:dr.ok&&br.ok,detailStatus:dr.status,bundleStatus:br.status,bundleUrl,bundleBytes:js.length,jwtContext,urls,interestingPaths:paths,bundleContexts:contexts});
+      }catch(e){return json({ok:false,stage:"map-inspection",error:String(e)},502);}
+    }
 
     if(u.pathname==="/test/daniel"){
       try{
