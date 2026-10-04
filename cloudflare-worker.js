@@ -54,8 +54,29 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
+
+    if(u.pathname==="/test/data"){
+      try{
+        const dr=await get(DANIEL_URL); const html=await dr.text();
+        const key=html.match(/https:\/\/www\.xcontest\.org\/api\/js\/\?key=([^"'&<]+)/i)?.[1];
+        const source=html.match(/source\s*:\s*\{\s*league\s*:\s*['"]([^'"]+)['"]\s*,\s*volume\s*:\s*['"]([^'"]+)['"]/i);
+        const item=html.match(/item\s*:\s*['"]([^'"]+)['"]/i)?.[1] || "DDirjan/3.10.2026/14:02";
+        if(!key||!source) return json({ok:false,stage:"parse-page-config",detailStatus:dr.status,keyFound:!!key,sourceFound:!!source,item},502);
+        const league=source[1], volume=source[2];
+        const ticketUrl="https://www.xcontest.org/api/data/ticket/?key="+encodeURIComponent(key);
+        const tr=await get(ticketUrl,"application/json,*/*;q=0.8"); const ticketText=await tr.text();
+        let ticketJson=null; try{ticketJson=JSON.parse(ticketText)}catch{}
+        const ticket=ticketJson?.ticket;
+        const out={ok:false,detailStatus:dr.status,keyFound:true,league,volume,item,ticketStatus:tr.status,ticketUrl,ticketResponse:ticketJson||ticketText.slice(0,1000)};
+        if(!tr.ok||!ticket){return json(out,502);}
+        // The public widget computes a challenge response in browser JS before the data request.
+        // This route intentionally stops here; it does not bypass user verification.
+        out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
+        return json(out);
+      }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
 
     if(u.pathname==="/test/map"){
       try{
