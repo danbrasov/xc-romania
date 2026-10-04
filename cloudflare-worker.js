@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,25 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/test/daily-params"){
+      try{
+        const urls=[
+          "https://www.xcontest.org/world/en/flights/daily-score-pg/?date=2026-10-03",
+          "https://www.xcontest.org/world/en/flights/daily-score-pg/?date=03.10.2026",
+          "https://www.xcontest.org/world/en/flights/daily-score-pg/#filter[date]=2026-10-03"
+        ];
+        const results=[];
+        for(const url of urls){
+          const r=await get(url); const html=await r.text();
+          const cfg=(html.match(/XContest\.run\(['"]flights['"]\s*,\s*\{[\s\S]*?\n\s*\}\);/i)||[])[0]||"";
+          results.push({requested:url,status:r.status,finalUrl:r.url,bytes:html.length,
+            configDate:(cfg.match(/date\s*:\s*['"]([^'"]+)['"]/i)||[])[1]||null,
+            hasTarget:html.includes("03.10.2026")||html.includes("2026-10-03")});
+        }
+        return json({ok:true,targetDate:"03.10.2026",note:"Tests only ordinary public URL/query/hash forms; no verification token or protected search.",results});
+      }catch(e){return json({ok:false,stage:"daily-public-date-params",error:String(e)},502);}
     }
 
     if(u.pathname==="/test/daily-date"){
