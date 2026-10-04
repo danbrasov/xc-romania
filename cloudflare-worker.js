@@ -54,8 +54,21 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
+
+    if(u.pathname==="/test/modules"){
+      try{
+        const mods={contest:"2.6.36",flight:"2.6.36",map:"2.6.36"};
+        const result={};
+        for(const [name,ver] of Object.entries(mods)){
+          const url="https://d393ilck4xazzy.cloudfront.net/api/js/"+ver+"/"+name+".js";
+          const r=await get(url,"application/javascript,text/javascript,*/*;q=0.8"); const js=await r.text();
+          result[name]={status:r.status,url,bytes:js.length,signals:{ticket:/ticket/i.test(js),xTicket:/X-Ticket/i.test(js),response:/response/i.test(js),crypto:/crypto/i.test(js),hash:/hash|sha|md5/i.test(js)},contexts:[...js.matchAll(/.{0,500}(?:ticket|X-Ticket|X-Ticket-Response|challenge|response|crypto|hash|sha|md5|data\/ticket).{0,1000}/gis)].map(m=>m[0].replace(/\s+/g," ").slice(0,1500)).slice(0,25)};
+        }
+        return json({ok:true,modules:result});
+      }catch(e){return json({ok:false,stage:"module-inspection",error:String(e)},502);}
+    }
 
     if(u.pathname==="/test/apijs/raw"){
       try{
