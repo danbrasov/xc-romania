@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
