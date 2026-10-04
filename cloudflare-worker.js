@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,18 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/test/meta"){
+      try{
+        const dr=await get(DANIEL_URL); const html=await dr.text();
+        const metas=[...html.matchAll(/<meta\b[^>]*>/gi)].map(m=>m[0]).filter(x=>/og:|twitter:|image|url|description|flight|map/i.test(x)).slice(0,80);
+        const links=[...html.matchAll(/<link\b[^>]*>/gi)].map(m=>m[0]).filter(x=>/canonical|alternate|image|preload|flight|map/i.test(x)).slice(0,80);
+        const scripts=[...html.matchAll(/<script\b[^>]*>[\s\S]*?<\/script>/gi)].map(m=>m[0]).filter(x=>/application\/ld\+json|flightId|flight_id|item\s*:|DDirjan|flight\.thumbs|og:image/i.test(x)).map(x=>x.slice(0,4000)).slice(0,30);
+        const ids=[...html.matchAll(/(?:flight(?:Id|_id|id)|fl)\s*[:=]\s*['"]?([A-Za-z0-9_:\/-]{3,120})/gi)].map(m=>m[1]).filter((v,i,a)=>a.indexOf(v)===i).slice(0,50);
+        const urls=[...html.matchAll(/https?:\/\/[^"'<>\\s]+/gi)].map(m=>m[0].replace(/&amp;/g,"&")).filter(x=>/flight|map|thumb|image|api|DDirjan/i.test(x)).filter((v,i,a)=>a.indexOf(v)===i).slice(0,80);
+        return json({ok:dr.ok,detailStatus:dr.status,detailUrl:dr.url,meta:metas,links,scripts,possibleIds:ids,interestingUrls:urls});
+      }catch(e){return json({ok:false,stage:"public-meta-inspection",error:String(e)},502);}
     }
 
     if(u.pathname==="/test/static-image"){
