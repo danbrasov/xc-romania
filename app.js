@@ -30,4 +30,14 @@ async function loadCategory(){
  try{const r=await fetch(API+"/api/ranking/category?cat="+encodeURIComponent(cat));const d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||"API error");categoryRanking[cat]=d.ranking||[];render()}
  catch(e){body.innerHTML='<tr><td colspan="8">Nu am putut încărca clasamentul: '+esc(e.message)+'</td></tr>'}
 }
-search.oninput=render;renderTabs();loadOpen();
+async function loadStats(){
+ try{
+  const r=await fetch(API+"/api/stats"),d=await r.json();if(!d.ok)return;
+  const bf=d.bestFlight, fai=d.bestFAI;
+  if(bf){document.querySelector("#stat-flight b").textContent=bf.pilot_name+" • "+Number(bf.distance_km).toFixed(1)+" km";document.querySelector("#stat-flight p").textContent=bf.takeoff_name+" • "+Number(bf.points).toFixed(2)+" pct • "+bf.glider_name}
+  if(fai){document.querySelector("#stat-fai b").textContent=fai.pilot_name+" • "+Number(fai.distance_km).toFixed(1)+" km";document.querySelector("#stat-fai p").textContent=fai.takeoff_name+" • "+Number(fai.points).toFixed(2)+" pct"}
+  const t=d.topTakeoffs||[];if(t.length){document.querySelector("#stat-takeoffs b").textContent=t[0].takeoff_name+" • "+t[0].flights+" zboruri";document.querySelector("#stat-takeoffs p").textContent=t.slice(1,4).map((x,i)=>(i+2)+". "+x.takeoff_name+" ("+x.flights+")").join(" • ")}
+  const w=d.topWings||[];if(w.length){document.querySelector("#stat-wings b").textContent=w[0].glider_name+" • "+w[0].flights+" zboruri";document.querySelector("#stat-wings p").textContent=w.slice(1,4).map((x,i)=>(i+2)+". "+x.glider_name+" ("+x.flights+")").join(" • ")}
+ }catch(e){}
+}
+search.oninput=render;renderTabs();loadOpen();loadStats();
