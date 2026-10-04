@@ -61,11 +61,16 @@ export default {
       try{
         const url="https://d393ilck4xazzy.cloudfront.net/api/js/2.6.36/contest.js";
         const r=await get(url,"application/javascript,text/javascript,*/*;q=0.8"); const js=await r.text();
-        const needles=["ticket","initSI","getSeedUrl","authSeed","md5","XMLHTTP","ajax_request","requestResponse"];
+        const needles=["ticket","initSI","getSeedUrl","authSeed","md5","requestResponse"];
         const hits={};
         for(const n of needles){
-          const safe=n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"); const re=new RegExp(".{0,1800}"+safe+".{0,2600}","gis");
-          hits[n]=[...js.matchAll(re)].map(m=>m[0].replace(/\s+/g," ").slice(0,4400)).slice(0,8);
+          const arr=[]; let from=0;
+          while(arr.length<4){
+            const i=js.indexOf(n,from); if(i<0) break;
+            arr.push(js.slice(Math.max(0,i-700),Math.min(js.length,i+1400)).replace(/\s+/g," "));
+            from=i+n.length;
+          }
+          hits[n]=arr;
         }
         return json({ok:r.ok,status:r.status,url,bytes:js.length,hits});
       }catch(e){return json({ok:false,stage:"contest-inspection",error:String(e)},502);}
