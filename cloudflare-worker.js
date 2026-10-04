@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,18 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/test/daily-score"){
+      try{
+        const url="https://www.xcontest.org/world/en/flights/daily-score-pg/";
+        const r=await get(url); const html=await r.text();
+        const lines=html.split(/\r?\n/);
+        const interesting=lines.filter(x=>/XContest\.run|daily|score|date|source|volume|sortBy|filterVars|joinList|verifyToken|userVerify|cData|2027/i.test(x)).map(x=>x.trim()).filter(Boolean).slice(0,220);
+        const scripts=[...html.matchAll(new RegExp("<script\\b[^>]*>[\\s\\S]*?</script>","gi"))].map(m=>m[0]).filter(x=>/XContest\.run|daily|score|date|source|volume|verifyToken|userVerify/i.test(x)).map(x=>x.slice(0,16000)).slice(0,20);
+        const hrefs=[...html.matchAll(/href=["']([^"']+)["']/gi)].map(m=>m[1].replace(/&amp;/g,"&")).filter(x=>/daily|score|date|day|flights/i.test(x)).filter((v,i,a)=>a.indexOf(v)===i).slice(0,120);
+        return json({ok:r.ok,status:r.status,url:r.url,bytes:html.length,interesting,hrefs,scripts});
+      }catch(e){return json({ok:false,stage:"daily-score-pg-inspection",error:String(e)},502);}
     }
 
     if(u.pathname==="/test/flights-module"){
