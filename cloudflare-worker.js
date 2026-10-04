@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,18 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/test/static-map"){
+      try{
+        const dr=await get(DANIEL_URL); const html=await dr.text();
+        const item=html.match(/item\s*:\s*['"]([^'"]+)['"]/i)?.[1]||null;
+        const league=html.match(/league\s*:\s*['"]([^'"]+)['"]/i)?.[1]||null;
+        const volume=html.match(/volume\s*:\s*['"]([^'"]+)['"]/i)?.[1]||null;
+        const bundleUrl=html.match(/https?:\/\/[^"'<>\\s]+\/widget\/flight-map\/[^"'<>\\s]+\/bundle\.js/i)?.[0]||null;
+        const staticContext=html.split(/\r?\n/).filter(x=>/loadFlightMapStatic|Static map|addFlight|adjustToFlightBounds|setApi|item\s*:|league\s*:|volume\s*:/i.test(x)).map(x=>x.trim()).slice(0,40);
+        return json({ok:dr.ok,detailStatus:dr.status,detailUrl:dr.url,item,league,volume,bundleUrl,staticContext});
+      }catch(e){return json({ok:false,stage:"static-map-public-flow",error:String(e)},502);}
     }
 
     if(u.pathname==="/test/map"){
