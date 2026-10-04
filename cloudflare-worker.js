@@ -54,8 +54,21 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
+
+    if(u.pathname==="/test/unpack"){
+      try{
+        const url="https://d393ilck4xazzy.cloudfront.net/api/js/2.6.36/contest.js";
+        const r=await get(url,"application/javascript,text/javascript,*/*;q=0.8"); const js=await r.text();
+        const m=js.match(/^eval\(\(function\(([^)]*)\)\{([\s\S]*?)\}\)\((.*)\)\)\s*$/);
+        const splitMatch=js.match(/'([^']{1000,})'\.split\('\.'\)\)\)\s*$/);
+        const words=splitMatch?splitMatch[1].split("."):[];
+        const packedHead=js.slice(0,12000);
+        const identifiers=[...packedHead.matchAll(/\b[0-9][a-z0-9]{1,4}\b/gi)].map(x=>x[0]).slice(0,300);
+        return json({ok:r.ok,status:r.status,bytes:js.length,wrapperMatched:!!m,wrapperArgs:m?m[1]:null,dictionaryFound:!!splitMatch,dictionaryWords:words.length,dictionaryHead:words.slice(0,120),dictionaryTail:words.slice(-120),packedHead,identifierSample:identifiers});
+      }catch(e){return json({ok:false,stage:"unpack-inspection",error:String(e)},502);}
+    }
 
     if(u.pathname==="/test/contest-meta"){
       try{
