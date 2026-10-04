@@ -54,8 +54,18 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
+
+    if(u.pathname==="/test/apijs/raw"){
+      try{
+        const dr=await get(DANIEL_URL); const html=await dr.text();
+        const apiJsUrl=html.match(/https:\/\/www\.xcontest\.org\/api\/js\/\?key=[^"'<>\\s]+/i)?.[0];
+        if(!apiJsUrl) return new Response("api/js URL not found",{status:502,headers:{"content-type":"text/plain; charset=utf-8"}});
+        const ar=await get(apiJsUrl,"application/javascript,text/javascript,*/*;q=0.8"); const js=await ar.text();
+        return new Response(js,{status:ar.status,headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"}});
+      }catch(e){return new Response(String(e),{status:502,headers:{"content-type":"text/plain; charset=utf-8"}});}
+    }
 
     if(u.pathname==="/test/apijs"){
       try{
