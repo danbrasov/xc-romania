@@ -54,8 +54,22 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
+
+    if(u.pathname==="/test/apijs"){
+      try{
+        const dr=await get(DANIEL_URL); const html=await dr.text();
+        const apiJsUrl=html.match(/https:\/\/www\.xcontest\.org\/api\/js\/\?key=[^"'<>\\s]+/i)?.[0];
+        if(!apiJsUrl) return json({ok:false,stage:"find-api-js"},502);
+        const ar=await get(apiJsUrl,"application/javascript,text/javascript,*/*;q=0.8"); const js=await ar.text();
+        const contexts=[...js.matchAll(/.{0,600}(?:ticket|X-Ticket|response|challenge|crypto|hash|sha|md5|fetch|data\/ticket).{0,1200}/gis)]
+          .map(m=>m[0].replace(/\s+/g," ").slice(0,1800)).slice(0,40);
+        const funcs=[...js.matchAll(/(?:function\s+[A-Za-z_$][\w$]*\s*\([^)]*\)|(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*(?:async\s*)?\([^)]*\)\s*=>)[\s\S]{0,1200}/g)]
+          .map(m=>m[0]).filter(x=>/ticket|response|hash|crypto|sha|fetch/i.test(x)).slice(0,20);
+        return json({ok:ar.ok,apiJsStatus:ar.status,apiJsUrl,bytes:js.length,signals:{ticket:/ticket/i.test(js),xTicket:/X-Ticket/i.test(js),crypto:/crypto/i.test(js),subtle:/subtle/i.test(js),sha:/sha-?1|sha-?256/i.test(js)},contexts,functions:funcs});
+      }catch(e){return json({ok:false,stage:"api-js-inspection",error:String(e)},502);}
+    }
 
     if(u.pathname==="/test/data"){
       try{
