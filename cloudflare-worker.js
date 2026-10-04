@@ -52,9 +52,9 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 }
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights","/api/backfill"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights","/api/backfill","/api/db/init","/api/db/status","/api/import"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,84 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/api/db/init"){
+      try{
+        if(!env?.DB) return json({ok:false,error:"D1 binding DB is missing"},500);
+        await env.DB.exec(`
+          CREATE TABLE IF NOT EXISTS flights (
+            id INTEGER PRIMARY KEY,
+            ident TEXT UNIQUE,
+            flight_date TEXT NOT NULL,
+            start_time TEXT,
+            utc_offset_start INTEGER,
+            pilot_id INTEGER,
+            pilot_name TEXT,
+            pilot_username TEXT,
+            pilot_country TEXT,
+            is_male INTEGER,
+            takeoff_id INTEGER,
+            takeoff_name TEXT,
+            takeoff_country TEXT,
+            glider_name TEXT,
+            glider_subclass TEXT,
+            glider_class TEXT,
+            glider_fai INTEGER,
+            route_type TEXT,
+            distance_km REAL,
+            points REAL,
+            avg_speed REAL,
+            duration TEXT,
+            xcontest_url TEXT,
+            kml_url TEXT,
+            imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+          CREATE INDEX IF NOT EXISTS idx_flights_date ON flights(flight_date);
+          CREATE INDEX IF NOT EXISTS idx_flights_points ON flights(points DESC);
+          CREATE INDEX IF NOT EXISTS idx_flights_pilot ON flights(pilot_id);
+          CREATE INDEX IF NOT EXISTS idx_flights_takeoff ON flights(takeoff_id);
+        `);
+        return json({ok:true,database:"xc-romania-db",table:"flights"});
+      }catch(e){return json({ok:false,stage:"db-init",error:String(e)},500);}
+    }
+
+    if(u.pathname==="/api/db/status"){
+      try{
+        if(!env?.DB) return json({ok:false,error:"D1 binding DB is missing"},500);
+        const row=await env.DB.prepare("SELECT COUNT(*) AS flights, MIN(flight_date) AS firstDate, MAX(flight_date) AS lastDate FROM flights").first();
+        return json({ok:true,...row});
+      }catch(e){return json({ok:false,stage:"db-status",error:String(e)},500);}
+    }
+
+    if(u.pathname==="/api/import"){
+      try{
+        if(!env?.DB) return json({ok:false,error:"D1 binding DB is missing"},500);
+        const date=u.searchParams.get("date")||new Date().toISOString().slice(0,10);
+        const dateRe=new RegExp("^\\d{4}-\\d{2}-\\d{2}$");
+        if(!dateRe.test(date)) return json({ok:false,error:"date must be YYYY-MM-DD"},400);
+        const api=new URL("https://www.xcontest.org/api/data/");
+        api.searchParams.set("flights/world/2027","");
+        api.searchParams.set("lng","en");
+        api.searchParams.set("key","03ECF5952EB046AC-A53195E89B7996E4-D1B128E82C3E2A66");
+        api.searchParams.set("list[start]","0"); api.searchParams.set("list[num]","100");
+        api.searchParams.set("list[sort]","points"); api.searchParams.set("list[dir]","down");
+        api.searchParams.set("filter[date]",date); api.searchParams.set("filter[country]","RO"); api.searchParams.set("filter[fai_classes]","3");
+        const url=api.href.replace("flights%2Fworld%2F2027=","flights/world/2027");
+        const rr=await get(url,"application/json,*/*;q=0.8"); const data=await rr.json();
+        if(!rr.ok) return json({ok:false,status:rr.status,error:"XContest fetch failed"},502);
+        const items=(data.items||[]).filter(x=>x?.takeoff?.countryIso==="RO");
+        let written=0;
+        for(const x of items){
+          await env.DB.prepare(`INSERT INTO flights
+            (id,ident,flight_date,start_time,utc_offset_start,pilot_id,pilot_name,pilot_username,pilot_country,is_male,takeoff_id,takeoff_name,takeoff_country,glider_name,glider_subclass,glider_class,glider_fai,route_type,distance_km,points,avg_speed,duration,xcontest_url,kml_url,imported_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET ident=excluded.ident,flight_date=excluded.flight_date,start_time=excluded.start_time,pilot_name=excluded.pilot_name,takeoff_name=excluded.takeoff_name,glider_name=excluded.glider_name,glider_subclass=excluded.glider_subclass,route_type=excluded.route_type,distance_km=excluded.distance_km,points=excluded.points,avg_speed=excluded.avg_speed,duration=excluded.duration,xcontest_url=excluded.xcontest_url,kml_url=excluded.kml_url,imported_at=CURRENT_TIMESTAMP`)
+            .bind(x.id,x.ident,date,x.pointStart?.time||null,x.utcOffsetStart??null,x.pilot?.id??null,x.pilot?.name||null,x.pilot?.username||null,x.pilot?.countryIso||null,x.pilot?.isMale===true?1:x.pilot?.isMale===false?0:null,x.takeoff?.id??null,x.takeoff?.name||null,x.takeoff?.countryIso||null,x.glider?.name||null,x.glider?.subclass||null,x.glider?.class||null,x.glider?.classFAI??null,x.league?.route?.type||null,x.league?.route?.distance??null,x.league?.route?.points??null,x.league?.route?.avgSpeed??null,x.stats?.duration||null,x.league?.flight?.link||null,x.league?.route?.urlKml||null).run();
+          written++;
+        }
+        return json({ok:true,date,xcontestTotal:data.list?.numberItems??items.length,written});
+      }catch(e){return json({ok:false,stage:"import",error:String(e)},500);}
     }
 
     if(u.pathname==="/api/backfill"){
