@@ -14,7 +14,7 @@ function render(){
  document.querySelector("#pilots").textContent=a.length;
  document.querySelector("#flights").textContent=a.reduce((n,x)=>n+Number(x.counted_flights||0),0);
  document.querySelector("#km").textContent=Math.round(a.reduce((n,x)=>n+Number(x.best_distance_km||0),0))+" km";
- body.innerHTML=a.map(x=>'<tr><td class="rank">'+x.rank+'</td><td class="pilot">'+esc(x.pilot_name)+'</td><td>—</td><td><span class="badge">OPEN</span></td><td>—</td><td>'+x.counted_flights+'</td><td>'+Number(x.best_distance_km||0).toFixed(1)+' km</td><td class="points">'+Number(x.total_points||0).toFixed(2)+'</td></tr>').join("")||'<tr><td colspan="8">Nu există rezultate.</td></tr>';
+ body.innerHTML=a.map(x=>'<tr><td class="rank">'+x.rank+'</td><td class="pilot">'+esc(x.pilot_name)+'</td><td>'+esc(x.gliders||"—")+'</td><td><span class="badge">'+esc(x.wing_classes||"—")+'</span></td><td>—</td><td>'+x.counted_flights+'</td><td>'+Number(x.best_distance_km||0).toFixed(1)+' km</td><td class="points">'+Number(x.total_points||0).toFixed(2)+'</td></tr>').join("")||'<tr><td colspan="8">Nu există rezultate.</td></tr>';
 }
 async function loadOpen(){
  body.innerHTML='<tr><td colspan="8">Se încarcă clasamentul…</td></tr>';
