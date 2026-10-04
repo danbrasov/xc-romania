@@ -16,6 +16,7 @@ const XCONTEST_URL =
   "list%5Bsort%5D=pts&list%5Bdir%5D=down";
 
 const RSS_URL = "https://www.xcontest.org/rss/flights/?world";
+const DANIEL_URL = "https://www.xcontest.org/world/en/flights/detail:DDirjan/3.10.2026/14:02";
 
 function decodeEntities(s) {
   return s.replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/&quot;/gi,'"')
@@ -53,8 +54,18 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
+
+    if(u.pathname==="/test/daniel"){
+      try{
+        const dr=await get(DANIEL_URL); const html=await dr.text(); const body=textOnly(html);
+        const lines=html.split(/\r?\n/).filter(line=>/DDirjan|Daniel|Bunloc|Romania|takeoff|launch|glider|wing|igc|lat|lon|coord|map|track|6\.75|9\.44/i.test(line)).map(line=>textOnly(line).slice(0,800)).filter(Boolean).slice(0,80);
+        const coords=[]; const re=/(-?\d{1,2}\.\d{4,8})[^\d-]{1,20}(-?\d{1,3}\.\d{4,8})/g; let m;
+        while((m=re.exec(html))!==null){const a=Number(m[1]),b=Number(m[2]);if(a>=40&&a<=50&&b>=20&&b<=30)coords.push([a,b]);if(coords.length>=30)break;}
+        return json({ok:dr.ok,detailStatus:dr.status,detailUrl:dr.url,bytes:html.length,title:(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]||"").trim(),cloudflareChallenge:/cf-turnstile|Just a moment|challenge-platform|cf-chl-/i.test(html),unauthorized:/authorized users only|ERROR\s*401/i.test(body),signals:{daniel:/Daniel\s+Dirjan|DDirjan/i.test(html),bunloc:/Bunloc/i.test(html),romania:/Romania|România/i.test(html),igc:/\.igc\b|IGC/i.test(html),glider:/glider|wing/i.test(html),map:/map|leaflet|openlayers|mapy/i.test(html),track:/track|polyline|flightPath/i.test(html)},coordPairs:coords,interestingLines:lines,textPreview:body.slice(0,3500)},dr.ok?200:502);
+      }catch(e){return json({ok:false,stage:"daniel-detail-fetch",error:String(e)},502);}
+    }
 
     if(u.pathname==="/test/rss" || u.pathname==="/test/detail"){
       try{
