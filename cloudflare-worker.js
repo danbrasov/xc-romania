@@ -1,5 +1,5 @@
 /**
- * XC Romania - XContest public-source tests
+ * XC Romania - XContest public-source tests (deploy refresh)
  * Routes:
  *   /test         -> protected flights-search diagnostic
  *   /test/raw     -> protected search response, first 12 KB
