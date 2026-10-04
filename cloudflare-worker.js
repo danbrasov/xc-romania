@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,16 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/test/flights-raw"){
+      try{
+        const url="https://www.xcontest.org/world/en/flights/";
+        const r=await get(url); const html=await r.text();
+        const lines=html.split(/\r?\n/);
+        const interesting=lines.filter(x=>/XContest|run\s*\(|gadget|contest|flight|pager|page|offset|limit|sort|source|volume|2027/i.test(x)).map(x=>x.trim()).filter(Boolean).slice(0,180);
+        return json({ok:r.ok,status:r.status,url:r.url,bytes:html.length,interesting,tail:html.slice(-12000)});
+      }catch(e){return json({ok:false,stage:"public-flights-raw",error:String(e)},502);}
     }
 
     if(u.pathname==="/test/flights-list"){
