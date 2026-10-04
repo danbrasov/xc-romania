@@ -197,18 +197,9 @@ export default {
       try{
         const rr=await get(RSS_URL,"application/rss+xml,application/xml,text/xml;q=0.9,*/*;q=0.8");
         const xml=await rr.text(); const items=parseRss(xml);
-        const checked=[];
-        for(const item of items.slice(0,20)){
-          if(!item.link) continue;
-          try{
-            const dr=await get(item.link); const html=await dr.text(); const body=textOnly(html);
-            const coordPairs=[]; const re=/(-?\d{1,2}\.\d{4,8})[^\d-]{1,20}(-?\d{1,3}\.\d{4,8})/g; let m;
-            while((m=re.exec(html))!==null){const lat=Number(m[1]),lon=Number(m[2]);if(lat>=43.4&&lat<=48.3&&lon>=20.2&&lon<=30.1)coordPairs.push([lat,lon]);if(coordPairs.length>=10)break;}
-            checked.push({title:item.title||null,link:item.link,status:dr.status,romaniaText:/Romania|România/i.test(body),bunloc:/Bunloc/i.test(body),priseaca:/Priseaca/i.test(body),coordPairs});
-          }catch(e){checked.push({title:item.title||null,link:item.link,error:String(e)});}
-        }
-        return json({ok:rr.ok,rssStatus:rr.status,itemCount:items.length,checkedCount:checked.length,candidates:checked.filter(x=>x.romaniaText||x.bunloc||x.priseaca||x.coordPairs?.length),checked});
-      }catch(e){return json({ok:false,stage:"romania-public-scan",error:String(e)},502);}
+        const sample=items.slice(0,5).map(x=>({title:x.title||null,link:x.link||null,date:x.pubDate||x.date||null}));
+        return json({ok:rr.ok,rssStatus:rr.status,itemCount:items.length,note:"Lightweight test: RSS only; detail pages are fetched one at a time by /test/detail.",sample});
+      }catch(e){return json({ok:false,stage:"romania-rss",error:String(e)},502);}
     }
 
     if(u.pathname==="/test/rss" || u.pathname==="/test/detail"){
