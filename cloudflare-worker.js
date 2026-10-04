@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,42 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/api/flights"){
+      try{
+        const date=u.searchParams.get("date")||new Date().toISOString().slice(0,10);
+        if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return json({ok:false,error:"date must be YYYY-MM-DD"},400);
+        const start=Math.max(0,Number.parseInt(u.searchParams.get("start")||"0",10)||0);
+        const num=Math.min(100,Math.max(1,Number.parseInt(u.searchParams.get("num")||"100",10)||100));
+        const api=new URL("https://www.xcontest.org/api/data/");
+        api.searchParams.set("flights/world/2027","");
+        api.searchParams.set("lng","en");
+        api.searchParams.set("key","03ECF5952EB046AC-A53195E89B7996E4-D1B128E82C3E2A66");
+        api.searchParams.set("list[start]",String(start));
+        api.searchParams.set("list[num]",String(num));
+        api.searchParams.set("list[sort]","points");
+        api.searchParams.set("list[dir]","down");
+        api.searchParams.set("filter[date]",date);
+        api.searchParams.set("filter[country]","RO");
+        api.searchParams.set("filter[fai_classes]","3");
+        const url=api.href.replace("flights%2Fworld%2F2027=","flights/world/2027");
+        const r=await get(url,"application/json,*/*;q=0.8");
+        const raw=await r.text();
+        let data; try{data=JSON.parse(raw)}catch{ return json({ok:false,status:r.status,error:"XContest did not return JSON",preview:raw.slice(0,500)},502); }
+        const items=(data.items||[]).filter(x=>x?.takeoff?.countryIso==="RO").map(x=>({
+          id:x.id,ident:x.ident,
+          pilot:{id:x.pilot?.id,name:x.pilot?.name,username:x.pilot?.username,countryIso:x.pilot?.countryIso,isMale:x.pilot?.isMale},
+          startTime:x.pointStart?.time||null,utcOffsetStart:x.utcOffsetStart??null,
+          takeoff:{id:x.takeoff?.id,name:x.takeoff?.name,countryIso:x.takeoff?.countryIso},
+          glider:{name:x.glider?.name,nameCompact:x.glider?.nameCompact,subclass:x.glider?.subclass,class:x.glider?.class,classFAI:x.glider?.classFAI},
+          route:{type:x.league?.route?.type,distance:x.league?.route?.distance,points:x.league?.route?.points,avgSpeed:x.league?.route?.avgSpeed},
+          duration:x.stats?.duration||null,
+          link:x.league?.flight?.link||null,
+          kml:x.league?.route?.urlKml||null
+        }));
+        return json({ok:r.ok,date,country:"RO",faiClass:3,start,requested:num,total:data.list?.numberItems??items.length,returned:items.length,nextStart:(data.list?.numberItemsReturned===num&&start+num<(data.list?.numberItems??0))?start+num:null,items},r.ok?200:502);
+      }catch(e){return json({ok:false,stage:"romania-daily-flights",error:String(e)},502);}
     }
 
     if(u.pathname==="/test/daily-params"){
