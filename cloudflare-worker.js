@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights","/api/backfill"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,23 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/api/backfill"){
+      const from=u.searchParams.get("from")||"2026-10-01";
+      const to=u.searchParams.get("to")||new Date().toISOString().slice(0,10);
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||from>to) return json({ok:false,error:"from/to must be YYYY-MM-DD and from <= to"},400);
+      const days=[]; let d=new Date(from+"T00:00:00Z"), end=new Date(to+"T00:00:00Z");
+      while(d<=end&&days.length<40){days.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+1);}
+      if(d<=end) return json({ok:false,error:"Maximum 40 days per request"},400);
+      const origin=new URL(request.url).origin, results=[]; let total=0;
+      for(const date of days){
+        const rr=await fetch(origin+"/api/flights?date="+date+"&start=0&num=100");
+        const data=await rr.json();
+        results.push({date,ok:data.ok,total:data.total??0,returned:data.returned??0,nextStart:data.nextStart??null});
+        total+=data.returned||0;
+      }
+      return json({ok:results.every(x=>x.ok),from,to,days:results.length,totalRomaniaFlights:total,results});
     }
 
     if(u.pathname==="/api/flights"){
