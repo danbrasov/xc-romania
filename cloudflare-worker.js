@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,27 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/test/daily-date"){
+      try{
+        const url="https://www.xcontest.org/world/en/flights/daily-score-pg/";
+        const r=await get(url); const html=await r.text();
+        const apiJs=(html.match(/<script[^>]+src=['"]([^'"]*\/api\/js\/\?key=[^'"]+)['"]/i)||[])[1]||null;
+        const key=apiJs ? (apiJs.match(/[?&]key=([^&]+)/)||[])[1] : null;
+        const config=(html.match(/XContest\.run\(['"]flights['"]\s*,\s*\{[\s\S]*?\n\s*\}\);/i)||[])[0]||null;
+        const dateSignals=[];
+        for(const term of ["date : 'last'","FilterHashGET","hashGET","HGET_filter","date_from","t_date_from","startItemIndex","getRequestUrl","getDataUrl"]){
+          dateSignals.push({term,found:html.includes(term)});
+        }
+        return json({
+          ok:r.ok,status:r.status,url:r.url,targetDate:"03.10.2026",
+          apiJs,key,
+          note:"Inspection only: identify the public date/list request shape; no user-verification token is generated or bypassed.",
+          config:config?config.slice(0,12000):null,
+          dateSignals
+        });
+      }catch(e){return json({ok:false,stage:"daily-date-inspection",error:String(e)},502);}
     }
 
     if(u.pathname==="/test/daily-score"){
