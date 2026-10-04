@@ -170,21 +170,39 @@ export default {
     }
 
     if(u.pathname==="/api/backfill"){
-      const from=u.searchParams.get("from")||"2026-10-01";
-      const to=u.searchParams.get("to")||new Date().toISOString().slice(0,10);
-      const dateRe=new RegExp("^\\d{4}-\\d{2}-\\d{2}$");
-      if(!dateRe.test(from)||!dateRe.test(to)||from>to) return json({ok:false,error:"from/to must be YYYY-MM-DD and from <= to"},400);
-      const days=[]; let d=new Date(from+"T00:00:00Z"), end=new Date(to+"T00:00:00Z");
-      while(d<=end&&days.length<40){days.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+1);}
-      if(d<=end) return json({ok:false,error:"Maximum 40 days per request"},400);
-      const origin=new URL(request.url).origin, results=[]; let total=0;
-      for(const date of days){
-        const rr=await fetch(origin+"/api/flights?date="+date+"&start=0&num=100");
-        const data=await rr.json();
-        results.push({date,ok:data.ok,total:data.total??0,returned:data.returned??0,nextStart:data.nextStart??null});
-        total+=data.returned||0;
-      }
-      return json({ok:results.every(x=>x.ok),from,to,days:results.length,totalRomaniaFlights:total,results});
+      try{
+        const from=u.searchParams.get("from")||"2026-10-01";
+        const to=u.searchParams.get("to")||new Date().toISOString().slice(0,10);
+        const dateRe=new RegExp("^\\d{4}-\\d{2}-\\d{2}$");
+        if(!dateRe.test(from)||!dateRe.test(to)||from>to) return json({ok:false,error:"from/to must be YYYY-MM-DD and from <= to"},400);
+        const days=[]; let d=new Date(from+"T00:00:00Z"), end=new Date(to+"T00:00:00Z");
+        while(d<=end&&days.length<40){days.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+1);}
+        if(d<=end) return json({ok:false,error:"Maximum 40 days per request"},400);
+        const results=[]; let total=0;
+        for(const date of days){
+          const api=new URL("https://www.xcontest.org/api/data/");
+          api.searchParams.set("flights/world/2027","");
+          api.searchParams.set("lng","en");
+          api.searchParams.set("key","03ECF5952EB046AC-A53195E89B7996E4-D1B128E82C3E2A66");
+          api.searchParams.set("list[start]","0");
+          api.searchParams.set("list[num]","100");
+          api.searchParams.set("list[sort]","points");
+          api.searchParams.set("list[dir]","down");
+          api.searchParams.set("filter[date]",date);
+          api.searchParams.set("filter[country]","RO");
+          api.searchParams.set("filter[fai_classes]","3");
+          const url=api.href.replace("flights%2Fworld%2F2027=","flights/world/2027");
+          const rr=await get(url,"application/json,*/*;q=0.8");
+          const raw=await rr.text();
+          let data=null; try{data=JSON.parse(raw)}catch{}
+          if(!rr.ok||!data){results.push({date,ok:false,status:rr.status,error:"XContest fetch failed"});continue;}
+          const returned=(data.items||[]).filter(x=>x?.takeoff?.countryIso==="RO").length;
+          const dayTotal=data.list?.numberItems??returned;
+          results.push({date,ok:true,total:dayTotal,returned,nextStart:(data.list?.numberItemsReturned===100&&dayTotal>100)?100:null});
+          total+=returned;
+        }
+        return json({ok:results.every(x=>x.ok),from,to,days:results.length,totalRomaniaFlights:total,results});
+      }catch(e){return json({ok:false,stage:"backfill",error:String(e)},502);}
     }
 
     if(u.pathname==="/api/flights"){
