@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,18 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/test/flights-list"){
+      try{
+        const url="https://www.xcontest.org/world/en/flights/";
+        const r=await get(url); const html=await r.text();
+        const forms=[...html.matchAll(/<form\\b[\\s\\S]*?<\\/form>/gi)].map(m=>m[0]).filter(x=>/filter|flight|page|sort|date/i.test(x)).map(x=>x.slice(0,12000)).slice(0,12);
+        const hrefs=[...html.matchAll(/href=["']([^"']+)["']/gi)].map(m=>m[1].replace(/&amp;/g,"&")).filter(x=>/flights|page|sort|filter|start|offset|list/i.test(x)).filter((v,i,a)=>a.indexOf(v)===i).slice(0,150);
+        const scripts=[...html.matchAll(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi)].map(m=>m[0]).filter(x=>/pagination|pager|offset|filter|flights|ajax|XContest\\.run|contest/i.test(x)).map(x=>x.slice(0,10000)).slice(0,20);
+        const inputs=[...html.matchAll(/<(?:input|select|option)\\b[^>]*>/gi)].map(m=>m[0]).filter(x=>/page|sort|filter|date|country|takeoff|limit|offset/i.test(x)).slice(0,150);
+        return json({ok:r.ok,status:r.status,url:r.url,bytes:html.length,forms,hrefs,inputs,scripts});
+      }catch(e){return json({ok:false,stage:"public-flights-list-inspection",error:String(e)},502);}
     }
 
     if(u.pathname==="/test/meta"){
