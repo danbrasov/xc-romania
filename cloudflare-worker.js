@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request, env) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights","/api/backfill","/api/db/init","/api/db/status","/api/import","/api/ranking/open"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights","/api/backfill","/api/db/init","/api/db/status","/api/import","/api/ranking/open","/api/ranking/category"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,35 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/api/ranking/category"){
+      try{
+        if(!env?.DB) return json({ok:false,error:"D1 binding DB is missing"},500);
+        const cat=(u.searchParams.get("cat")||"").toUpperCase();
+        const allowed=["CCC","EN-D","EN-C","EN-B","EN-A","FEMININ"];
+        if(!allowed.includes(cat)) return json({ok:false,error:"Unsupported category",allowed},400);
+        let where="points IS NOT NULL", binds=[];
+        if(cat==="FEMININ") where+=" AND is_male=0";
+        else if(cat==="CCC") where+=" AND UPPER(COALESCE(glider_subclass,''))='CCC'";
+        else { where+=" AND UPPER(COALESCE(glider_subclass,''))=?"; binds=[cat.replace("EN-","")]; }
+        const q=`WITH ranked AS (
+          SELECT *,ROW_NUMBER() OVER (
+            PARTITION BY COALESCE(CAST(pilot_id AS TEXT),pilot_username,pilot_name)
+            ORDER BY points DESC,distance_km DESC,id ASC
+          ) rn FROM flights WHERE ${where}
+        ), best6 AS (SELECT * FROM ranked WHERE rn<=6)
+        SELECT pilot_id,MAX(pilot_name) pilot_name,MAX(pilot_username) pilot_username,
+          MAX(pilot_country) pilot_country,COUNT(*) counted_flights,
+          GROUP_CONCAT(DISTINCT glider_name) gliders,GROUP_CONCAT(DISTINCT glider_subclass) wing_classes,
+          ROUND(SUM(points),2) total_points,ROUND(MAX(points),2) best_points,
+          ROUND(MAX(distance_km),2) best_distance_km
+        FROM best6 GROUP BY COALESCE(CAST(pilot_id AS TEXT),pilot_username,pilot_name)
+        ORDER BY total_points DESC,best_points DESC,best_distance_km DESC,pilot_name ASC`;
+        const r=await env.DB.prepare(q).bind(...binds).all();
+        const ranking=(r.results||[]).map((x,i)=>({rank:i+1,...x}));
+        return json({ok:true,ranking:cat,rule:"Best 6 flights",pilots:ranking.length,ranking});
+      }catch(e){return json({ok:false,stage:"ranking-category",error:String(e)},500);}
     }
 
     if(u.pathname==="/api/ranking/open"){
