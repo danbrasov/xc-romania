@@ -64,7 +64,7 @@ export default {
         const needles=["ticket","initSI","getSeedUrl","authSeed","md5","XMLHTTP","ajax_request","requestResponse"];
         const hits={};
         for(const n of needles){
-          const re=new RegExp(".{0,1800}"+n.replace(/[.*+?^$\\{\\}()|[\\]\\\\]/g,"\\    if(u.pathname==="/test/modules"){")+".{0,2600}","gis");
+          const safe=n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"); const re=new RegExp(".{0,1800}"+safe+".{0,2600}","gis");
           hits[n]=[...js.matchAll(re)].map(m=>m[0].replace(/\s+/g," ").slice(0,4400)).slice(0,8);
         }
         return json({ok:r.ok,status:r.status,url,bytes:js.length,hits});
