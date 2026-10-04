@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request, env) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights","/api/backfill","/api/db/init","/api/db/status","/api/import"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights","/api/backfill","/api/db/init","/api/db/status","/api/import","/api/ranking/open"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,41 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/api/ranking/open"){
+      try{
+        if(!env?.DB) return json({ok:false,error:"D1 binding DB is missing"},500);
+        const q=`
+          WITH ranked AS (
+            SELECT *,
+              ROW_NUMBER() OVER (
+                PARTITION BY COALESCE(CAST(pilot_id AS TEXT), pilot_username, pilot_name)
+                ORDER BY points DESC, distance_km DESC, id ASC
+              ) AS rn
+            FROM flights
+            WHERE points IS NOT NULL
+          ),
+          best6 AS (
+            SELECT * FROM ranked WHERE rn <= 6
+          )
+          SELECT
+            pilot_id,
+            MAX(pilot_name) AS pilot_name,
+            MAX(pilot_username) AS pilot_username,
+            MAX(pilot_country) AS pilot_country,
+            COUNT(*) AS counted_flights,
+            ROUND(SUM(points),2) AS total_points,
+            ROUND(MAX(points),2) AS best_points,
+            ROUND(MAX(distance_km),2) AS best_distance_km
+          FROM best6
+          GROUP BY COALESCE(CAST(pilot_id AS TEXT), pilot_username, pilot_name)
+          ORDER BY total_points DESC, best_points DESC, best_distance_km DESC, pilot_name ASC
+        `;
+        const r=await env.DB.prepare(q).all();
+        const ranking=(r.results||[]).map((x,i)=>({rank:i+1,...x}));
+        return json({ok:true,ranking:"OPEN",rule:"Best 6 flights",pilots:ranking.length,ranking});
+      }catch(e){return json({ok:false,stage:"ranking-open",error:String(e)},500);}
     }
 
     if(u.pathname==="/api/db/init"){
