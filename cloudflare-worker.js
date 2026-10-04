@@ -172,7 +172,8 @@ export default {
     if(u.pathname==="/api/backfill"){
       const from=u.searchParams.get("from")||"2026-10-01";
       const to=u.searchParams.get("to")||new Date().toISOString().slice(0,10);
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||from>to) return json({ok:false,error:"from/to must be YYYY-MM-DD and from <= to"},400);
+      const dateRe=new RegExp("^\\d{4}-\\d{2}-\\d{2}$");
+      if(!dateRe.test(from)||!dateRe.test(to)||from>to) return json({ok:false,error:"from/to must be YYYY-MM-DD and from <= to"},400);
       const days=[]; let d=new Date(from+"T00:00:00Z"), end=new Date(to+"T00:00:00Z");
       while(d<=end&&days.length<40){days.push(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()+1);}
       if(d<=end) return json({ok:false,error:"Maximum 40 days per request"},400);
