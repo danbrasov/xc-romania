@@ -54,7 +54,7 @@ async function get(url, accept="text/html,application/xhtml+xml,application/xml;
 export default {
   async fetch(request, env) {
     const u=new URL(request.url);
-    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights","/api/backfill","/api/db/init","/api/db/status","/api/import","/api/ranking/open","/api/ranking/category","/api/stats"];
+    const usage=["/test","/test/raw","/test/rss","/test/detail","/test/daniel","/test/map","/test/data","/test/apijs","/test/apijs/raw","/test/modules","/test/contest","/test/contest-meta","/test/unpack","/test/romania","/test/static-map","/test/static-image","/test/meta","/test/flights-list","/test/flights-raw","/test/flights-module","/test/daily-score","/test/daily-date","/test/daily-params","/api/flights","/api/backfill","/api/db/init","/api/db/status","/api/import","/api/ranking/open","/api/ranking/category","/api/stats","/api/flight-detail"];
     if(!usage.includes(u.pathname)) return json({ok:true,service:"XC Romania XContest test",usage});
 
     if(u.pathname==="/test/unpack"){
@@ -167,6 +167,21 @@ export default {
         out.ok=true; out.next="Public ticket obtained. Browser widget still computes X-Ticket-Response before /api/data flight fetch.";
         return json(out);
       }catch(e){return json({ok:false,stage:"data-inspection",error:String(e)},502);}
+    }
+
+    if(u.pathname==="/api/flight-detail"){
+      try{
+        const id=Number(u.searchParams.get("id"));
+        if(!id||!env?.DB) return json({ok:false,error:"Valid flight id required"},400);
+        const f=await env.DB.prepare("SELECT * FROM flights WHERE id=?").bind(id).first();
+        if(!f) return json({ok:false,error:"Flight not found"},404);
+        let finishTime=null;
+        if(f.start_time&&f.duration){
+          const m=String(f.duration).match(/^PT(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?$/);
+          if(m){const sec=(Number(m[1]||0)*3600+Number(m[2]||0)*60+Number(m[3]||0))*1000;finishTime=new Date(new Date(f.start_time).getTime()+sec).toISOString();}
+        }
+        return json({ok:true,flight:{...f,finish_time:finishTime,track_available:false,max_altitude_m:null,note:"Track/maximum altitude are not present in the current public daily-list payload."}});
+      }catch(e){return json({ok:false,stage:"flight-detail",error:String(e)},500);}
     }
 
     if(u.pathname==="/api/stats"){
